@@ -22,9 +22,21 @@ const app = express();
 
 const PORT = process.env.PORT || 5000;
 
+const allowedOrigins = (
+  process.env.APP_BASE_URL || "http://localhost:5173"
+)
+  .split(",")
+  .map((url) => url.trim());
+
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
@@ -52,29 +64,25 @@ app.get("/", (_req, res) => {
   });
 });
 
-app.post("/test/company", async(_req, res) =>{
-  try{
-    const company = await Company.create({
-      name : "TeamFlow Test Company",
-      description: "Temporary test company"
-    })
+// app.post("/test/company", async(_req, res) =>{
+//   try{
+//     const company = await Company.create({
+//       name : "TeamFlow Test Company",
+//       description: "Temporary test company"
+//     })
 
-    res.status(201).json(company);
-  }catch(error){
-    console.error(error);
-    res.status(500).json({
-      message: "Failed to create company",
-    });
-  }
-} )
+//     res.status(201).json(company);
+//   }catch(error){
+//     console.error(error);
+//     res.status(500).json({
+//       message: "Failed to create company",
+//     });
+//   }
+// } )
 
 app.use("/api/auth", authRoutes)
 
-connectDB().then(() => {
-  app.listen(PORT, () => {
-    console.log(`TeamFlow server running on port ${PORT}`);
-  });
-});
+
 
 app.get("/api/auth/me", requireAuth,
   (req: AuthenticatedRequest, res) => {
@@ -94,3 +102,9 @@ app.get(
     });
   },
 );
+
+connectDB().then(() => {
+  app.listen(PORT, () => {
+    console.log(`TeamFlow server running on port ${PORT}`);
+  });
+});
