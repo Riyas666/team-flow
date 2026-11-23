@@ -127,12 +127,12 @@ export default function Dashboard() {
     }
   }, [])
 
-  const stats = summary
-    ? statDefinitions.map((stat) => ({
-        ...stat,
-        value: summary[stat.key],
-      }))
-    : []
+  // const stats = summary
+  //   ? statDefinitions.map((stat) => ({
+  //       ...stat,
+  //       value: summary[stat.key],
+  //     }))
+  //   : []
 
   return (
     <div className="space-y-8">

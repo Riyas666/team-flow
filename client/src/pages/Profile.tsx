@@ -134,23 +134,9 @@ const [uploadError, setUploadError] = useState('')
     e.preventDefault()
 
     const trimmedName = name.trim()
-    const trimmedPicture = profilePicture.trim()
 
     if (trimmedName.length < 2 || trimmedName.length > 100) {
       setError('Name must be between 2 and 100 characters.')
-      return
-    }
-
-    if (trimmedPicture.length > 2048) {
-      setError('Profile picture URL is too long.')
-      return
-    }
-
-    if (
-      trimmedPicture &&
-      !/^https?:\/\/\S+$/i.test(trimmedPicture)
-    ) {
-      setError('Enter a valid profile picture URL starting with http:// or https://.')
       return
     }
 
@@ -165,7 +151,6 @@ const [uploadError, setUploadError] = useState('')
           method: 'PATCH',
           body: JSON.stringify({
             name: trimmedName,
-            profilePicture: trimmedPicture || null,
           }),
         },
       )
@@ -242,7 +227,9 @@ async function handleImageUpload() {
     )
 
     setProfile(data.user)
-    clearSelectedImage()
+setProfilePicture(data.user.profilePicture ?? '')
+clearSelectedImage()
+setSuccess('Profile picture updated successfully.')
   } catch (error) {
     setUploadError(
       error instanceof Error
@@ -325,18 +312,18 @@ async function handleImageUpload() {
         <CardContent className="-mt-12 pb-6 sm:-mt-14">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-end">
             <div className="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-4 border-background bg-primary/10 text-2xl font-bold text-primary sm:h-28 sm:w-28">
-              {profilePicture ? (
-                <img
-                  src={profilePicture}
-                  alt={`${profile.name}'s profile`}
-                  className="h-full w-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none'
-                  }}
-                />
-              ) : (
-                getInitials(profile.name)
-              )}
+              {previewUrl || profilePicture ? (
+  <img
+    src={previewUrl || profilePicture}
+    alt={`${profile.name}'s profile`}
+    className="h-full w-full object-cover"
+    onError={(e) => {
+      e.currentTarget.style.display = 'none'
+    }}
+  />
+) : (
+  getInitials(profile.name)
+)}
             </div>
 
             <div className="min-w-0 flex-1 pb-1">
@@ -398,22 +385,88 @@ async function handleImageUpload() {
               </div>
 
               {isEditing && (
-                <div className="space-y-2">
-                  <Label htmlFor="profile-picture">Profile picture URL</Label>
-                  <Input
-                    id="profile-picture"
-                    type="url"
-                    placeholder="https://example.com/photo.jpg"
-                    value={profilePicture}
-                    onChange={(e) => setProfilePicture(e.target.value)}
-                    disabled={isSaving}
-                    maxLength={2048}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Enter a publicly accessible image URL, or leave it empty to use your initials.
-                  </p>
-                </div>
-              )}
+  <div className="space-y-3">
+    <Label>Profile picture</Label>
+
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept="image/jpeg,image/png,image/webp"
+      className="hidden"
+      onChange={handleImageSelect}
+    />
+
+    <div className="flex flex-col gap-3 rounded-lg border border-border p-4 sm:flex-row sm:items-center">
+      <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border bg-muted">
+        {previewUrl || profilePicture ? (
+          <img
+            src={previewUrl || profilePicture}
+            alt="Profile preview"
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <UserRound className="h-8 w-8 text-muted-foreground" />
+        )}
+      </div>
+
+      <div className="min-w-0 flex-1 space-y-1">
+        <p className="text-sm font-medium">
+          Upload a profile picture
+        </p>
+        <p className="text-xs text-muted-foreground">
+          JPG, PNG or WEBP. Maximum size: 5 MB.
+        </p>
+
+        <div className="flex flex-wrap gap-2 pt-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading || isSaving}
+          >
+            <Camera className="mr-2 h-4 w-4" />
+            Choose image
+          </Button>
+
+          {selectedImage && (
+            <>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => void handleImageUpload()}
+                disabled={isUploading}
+              >
+                {isUploading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="mr-2 h-4 w-4" />
+                )}
+                {isUploading ? 'Uploading...' : 'Upload picture'}
+              </Button>
+
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={clearSelectedImage}
+                disabled={isUploading}
+              >
+                Cancel
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+
+    {uploadError && (
+      <p role="alert" className="text-sm text-destructive">
+        {uploadError}
+      </p>
+    )}
+  </div>
+)}
 
               <div className="flex flex-wrap gap-3 pt-2">
                 {isEditing ? (

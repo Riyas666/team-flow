@@ -9,7 +9,6 @@ import {
   Shield,
   UserRound,
   X,
-  Copy,
   CheckCircle2,
   Trash2,
   Loader2,

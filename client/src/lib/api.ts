@@ -8,13 +8,23 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const token = sessionStorage.getItem("teamflow_token");
 
+  const headers = new Headers(options.headers);
+
+  // Let the browser set multipart boundaries for FormData.
+  if (
+    !(options.body instanceof FormData) &&
+    !headers.has("Content-Type")
+  ) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
+    headers,
   });
 
   const data = await response.json().catch(() => null);
