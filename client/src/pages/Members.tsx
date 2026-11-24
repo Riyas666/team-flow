@@ -82,7 +82,6 @@ export default function Members() {
   const [inviteError, setInviteError] = useState('')
   const [invitation, setInvitation] =
     useState<InvitationResponse['invitation'] | null>(null)
-  const [copied, setCopied] = useState(false)
   const [failedProfilePictures, setFailedProfilePictures] =
   useState<string[]>([])
   const [memberToDelete, setMemberToDelete] = useState<Member | null>(null)
@@ -121,7 +120,6 @@ const [deleteError, setDeleteError] = useState('')
     setInviteRole('employee')
     setInviteError('')
     setInvitation(null)
-    setCopied(false)
     setIsInviteOpen(true)
   }
 

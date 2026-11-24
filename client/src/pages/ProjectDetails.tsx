@@ -66,12 +66,6 @@ interface Member {
   isActive: boolean
 }
 
-const statusLabels: Record<Task['status'], string> = {
-  todo: 'To do',
-  in_progress: 'In progress',
-  completed: 'Completed',
-}
-
 const priorityStyles: Record<Task['priority'], string> = {
   low: 'bg-slate-100 text-slate-700',
   medium: 'bg-amber-100 text-amber-800',

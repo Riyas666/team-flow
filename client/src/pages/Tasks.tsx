@@ -352,17 +352,6 @@ async function handleStatusChange(
     .includes(searchTerm.toLowerCase().trim())
 })
 
-function formatStatus(status: Task['status']) {
-  switch (status) {
-    case 'todo':
-      return 'Todo'
-    case 'in_progress':
-      return 'In Progress'
-    case 'completed':
-      return 'Completed'
-  }
-}
-
 function formatDueDate(dueDate: string | null) {
   if (!dueDate) return 'No due date'
 
