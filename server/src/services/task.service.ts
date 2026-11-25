@@ -134,20 +134,19 @@ export async function listTasks(actor: TaskActor) {
     throw new Error("INVALID_AUTH_CONTEXT");
   }
 
-  const taskFilter: {
-    companyId: string;
-    assignedTo?: string;
-  } = {
-    companyId: actor.companyId,
-  };
-
-  if (actor.role === "employee") {
-    taskFilter.assignedTo = actor.userId;
-  } else if (actor.role !== "owner" && actor.role !== "teamLeader") {
+  if (!["owner", "teamLeader", "employee"].includes(actor.role)) {
     throw new Error("FORBIDDEN");
   }
 
-  return Task.find(taskFilter)
+  const projects = await Project.find({
+    companyId: actor.companyId,
+    status: { $ne: "archived" },
+  }).distinct("_id");
+
+  return Task.find({
+    companyId: actor.companyId,
+    projectId: { $in: projects },
+  })
     .sort({ createdAt: -1 })
     .populate("projectId", "name")
     .populate("assignedTo", "name email")
@@ -171,66 +170,62 @@ export async function updateTaskStatus(
     throw new Error("INVALID_TASK_ID");
   }
 
+  if (!["owner", "teamLeader", "employee"].includes(actor.role)) {
+    throw new Error("FORBIDDEN");
+  }
+
   if (!["todo", "in_progress", "completed"].includes(status)) {
     throw new Error("INVALID_TASK_STATUS");
   }
 
-  const taskFilter: {
-    _id: string;
-    companyId: string;
-    assignedTo?: string;
-  } = {
+  const existingTask = await Task.findOne({
     _id: taskId,
     companyId: actor.companyId,
-  };
+  }).select("_id title status projectId");
 
-  if (actor.role === "employee") {
-    taskFilter.assignedTo = actor.userId;
-  } else if (
-    actor.role !== "owner" &&
-    actor.role !== "teamLeader"
-  ) {
-    throw new Error("FORBIDDEN");
+  if (!existingTask) {
+    throw new Error("TASK_NOT_FOUND");
   }
 
-  const existingTask = await Task.findOne(taskFilter)
-  .select("_id title status projectId")
-  .lean();
+  const project = await Project.findOne({
+    _id: existingTask.projectId,
+    companyId: actor.companyId,
+    status: { $ne: "archived" },
+  }).select("_id");
 
-if (!existingTask) {
-  throw new Error("TASK_NOT_FOUND");
-}
+  if (!project) {
+    throw new Error("TASK_NOT_FOUND");
+  }
 
-if (existingTask.status === status) {
-  return existingTask;
-}
+  if (existingTask.status === status) {
+    return existingTask;
+  }
 
-const task = await Task.findOneAndUpdate(
-  { _id: existingTask._id, companyId: actor.companyId },
-  { $set: { status } },
-  {
-    new: true,
-    runValidators: true,
-  },
-)
-  .select("-__v")
-  .lean();
+  const task = await Task.findOneAndUpdate(
+    {
+      _id: taskId,
+      companyId: actor.companyId,
+    },
+    { $set: { status } },
+    { new: true, runValidators: true },
+  )
+    .select("-__v")
+    .lean();
 
-if (!task) {
-  throw new Error("TASK_NOT_FOUND");
-}
+  if (!task) {
+    throw new Error("TASK_NOT_FOUND");
+  }
 
-await recordActivity({
-  companyId: actor.companyId,
-  actorId: actor.userId,
-  action: "task_status_updated",
-  projectId: existingTask.projectId.toString(),
-  taskId: task._id.toString(),
-  details: `Changed task "${task.title}" status from "${existingTask.status}" to "${status}"`,
-});
+  await recordActivity({
+    companyId: actor.companyId,
+    actorId: actor.userId,
+    action: "task_status_updated",
+    projectId: existingTask.projectId.toString(),
+    taskId: task._id.toString(),
+    details: `Changed task "${existingTask.title}" status from "${existingTask.status}" to "${status}"`,
+  });
 
-return task;
-
+  return task;
 }
 
 

@@ -1,3 +1,4 @@
+
 import mongoose, { Schema } from "mongoose";
 
 const companySchema = new Schema(
@@ -9,13 +10,15 @@ const companySchema = new Schema(
       minlength: 2,
       maxlength: 100,
     },
-
     description: {
       type: String,
       trim: true,
       maxlength: 500,
     },
-
+    logo: {
+      type: String,
+      default: "",
+    },
     isActive: {
       type: Boolean,
       default: true,

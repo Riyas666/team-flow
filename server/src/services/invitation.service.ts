@@ -34,7 +34,8 @@ export async function createInvitation(
     throw new Error("INVALID_AUTH_CONTEXT");
   }
 
-  if (actor.role !== "owner" && actor.role !== "teamLeader") {
+  // Only the workspace owner can create invitations.
+  if (actor.role !== "owner") {
     throw new Error("FORBIDDEN");
   }
 
@@ -55,11 +56,6 @@ export async function createInvitation(
 
   if (role !== "teamLeader" && role !== "employee") {
     throw new Error("INVALID_ROLE");
-  }
-
-  // Team leaders can invite employees only.
-  if (actor.role === "teamLeader" && role !== "employee") {
-    throw new Error("FORBIDDEN");
   }
 
   const existingUser = await User.findOne({ email }).lean();

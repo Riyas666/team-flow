@@ -13,16 +13,17 @@ interface MemberActor {
 }
 
 export async function listMembers(actor: MemberActor) {
-  if (!mongoose.isValidObjectId(actor.companyId)) {
+  if (
+    !mongoose.isValidObjectId(actor.userId) ||
+    !mongoose.isValidObjectId(actor.companyId)
+  ) {
     throw new Error("INVALID_AUTH_CONTEXT");
   }
 
   const companyId = new mongoose.Types.ObjectId(actor.companyId);
 
   const [users, invitations] = await Promise.all([
-    User.find({
-      companyId,  
-    })
+    User.find({ companyId })
       .select("name email role isActive createdAt profilePicture")
       .sort({ createdAt: -1 })
       .lean(),
@@ -31,23 +32,23 @@ export async function listMembers(actor: MemberActor) {
       companyId,
       acceptedAt: null,
     })
-      .select("name email role expiresAt createdAt profilePicture")
+      .select("name email role expiresAt createdAt")
       .sort({ createdAt: -1 })
       .lean(),
   ]);
 
-const members = users.map((user) => ({
-  _id: user._id.toString(),
-  name: user.name,
-  email: user.email,
-  role: user.role,
-  isActive: user.isActive,
-  status: user.isActive ? "active" : "inactive",
-  profilePicture: user.profilePicture ?? null,
-  createdAt: user.createdAt,
-  invitedAt: null,
-  expiresAt: null,
-}));
+  const members = users.map((user) => ({
+    _id: user._id.toString(),
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    isActive: user.isActive,
+    status: user.isActive ? "active" : "inactive",
+    profilePicture: user.profilePicture ?? null,
+    createdAt: user.createdAt,
+    invitedAt: null,
+    expiresAt: null,
+  }));
 
   const pendingInvitations = invitations.map((invitation) => ({
     _id: invitation._id.toString(),
@@ -73,20 +74,23 @@ const members = users.map((user) => ({
   );
 }
 
-
 export async function deleteMember(
   memberId: string,
   actor: MemberActor,
 ) {
   if (
     !mongoose.isValidObjectId(actor.userId) ||
-    !mongoose.isValidObjectId(actor.companyId) ||
-    !mongoose.isValidObjectId(memberId)
+    !mongoose.isValidObjectId(actor.companyId)
   ) {
+    throw new Error("INVALID_AUTH_CONTEXT");
+  }
+
+  if (!mongoose.isValidObjectId(memberId)) {
     throw new Error("INVALID_MEMBER_ID");
   }
 
-  if (actor.role !== "owner" && actor.role !== "teamLeader") {
+  // Only the Owner can remove members.
+  if (actor.role !== "owner") {
     throw new Error("FORBIDDEN");
   }
 
@@ -94,7 +98,6 @@ export async function deleteMember(
     throw new Error("CANNOT_REMOVE_SELF");
   }
 
-  // First, check whether this is an existing user.
   const member = await User.findOne({
     _id: memberId,
     companyId: actor.companyId,
@@ -107,13 +110,6 @@ export async function deleteMember(
 
     if (member.role === "owner") {
       throw new Error("CANNOT_REMOVE_OWNER");
-    }
-
-    if (
-      actor.role === "teamLeader" &&
-      member.role !== "employee"
-    ) {
-      throw new Error("FORBIDDEN");
     }
 
     member.isActive = false;
@@ -129,7 +125,7 @@ export async function deleteMember(
     };
   }
 
-  // If no user exists, check whether this is an invitation.
+  // Check pending invitations.
   const invitation = await Invitation.findOne({
     _id: memberId,
     companyId: actor.companyId,
@@ -140,15 +136,6 @@ export async function deleteMember(
     throw new Error("MEMBER_NOT_FOUND");
   }
 
-  // Team leaders may revoke employee invitations only.
-  if (
-    actor.role === "teamLeader" &&
-    invitation.role !== "employee"
-  ) {
-    throw new Error("FORBIDDEN");
-  }
-
-  // Revoke the pending/expired invitation.
   await Invitation.deleteOne({
     _id: invitation._id,
     companyId: actor.companyId,
@@ -168,7 +155,6 @@ export async function deleteMember(
   };
 }
 
-
 export async function updateMemberStatus(
   memberId: string,
   isActive: boolean,
@@ -176,13 +162,17 @@ export async function updateMemberStatus(
 ) {
   if (
     !mongoose.isValidObjectId(actor.userId) ||
-    !mongoose.isValidObjectId(actor.companyId) ||
-    !mongoose.isValidObjectId(memberId)
+    !mongoose.isValidObjectId(actor.companyId)
   ) {
+    throw new Error("INVALID_AUTH_CONTEXT");
+  }
+
+  if (!mongoose.isValidObjectId(memberId)) {
     throw new Error("INVALID_MEMBER_ID");
   }
 
-  if (actor.role !== "owner" && actor.role !== "teamLeader") {
+  // Only the Owner can activate or deactivate members.
+  if (actor.role !== "owner") {
     throw new Error("FORBIDDEN");
   }
 
@@ -203,10 +193,6 @@ export async function updateMemberStatus(
     throw new Error("CANNOT_CHANGE_OWNER_STATUS");
   }
 
-  if (actor.role === "teamLeader" && member.role !== "employee") {
-    throw new Error("FORBIDDEN");
-  }
-
   member.isActive = isActive;
   await member.save();
 
@@ -217,5 +203,62 @@ export async function updateMemberStatus(
     role: member.role,
     isActive: member.isActive,
     status: member.isActive ? "active" : "inactive",
+  };
+}
+
+// Only the Owner can change member roles.
+export async function updateMemberRole(
+  memberId: string,
+  role: "employee" | "teamLeader",
+  actor: MemberActor,
+) {
+  if (
+    !mongoose.isValidObjectId(actor.userId) ||
+    !mongoose.isValidObjectId(actor.companyId)
+  ) {
+    throw new Error("INVALID_AUTH_CONTEXT");
+  }
+
+  if (!mongoose.isValidObjectId(memberId)) {
+    throw new Error("INVALID_MEMBER_ID");
+  }
+
+  if (actor.role !== "owner") {
+    throw new Error("FORBIDDEN");
+  }
+
+  if (role !== "employee" && role !== "teamLeader") {
+    throw new Error("INVALID_ROLE");
+  }
+
+  if (memberId === actor.userId) {
+    throw new Error("CANNOT_CHANGE_OWN_ROLE");
+  }
+
+  const member = await User.findOneAndUpdate(
+    {
+      _id: memberId,
+      companyId: actor.companyId,
+      role: { $in: ["employee", "teamLeader"] },
+    },
+    {
+      $set: { role },
+    },
+    {
+      new: true,
+      runValidators: true,
+    },
+  ).select("name email role isActive");
+
+  if (!member) {
+    throw new Error("MEMBER_NOT_FOUND");
+  }
+
+  return {
+    id: member._id.toString(),
+    name: member.name,
+    email: member.email,
+    role: member.role,
+    isActive: member.isActive,
   };
 }

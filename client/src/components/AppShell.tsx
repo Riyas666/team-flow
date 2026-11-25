@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/popover'
 
 import { Input } from '@/components/ui/input'
+import { apiRequest } from '@/lib/api'
 
 const NAV_ITEMS = [
   {
@@ -77,8 +78,17 @@ const NAV_ITEMS = [
     icon: ShieldCheck,
   },
 ] as const
+
 function UserMenu() {
   const navigate = useNavigate()
+
+  function handleLogout() {
+    sessionStorage.removeItem('teamflow_token')
+    sessionStorage.removeItem('teamflow_role')
+
+    navigate({ to: '/auth', replace: true })
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -106,10 +116,10 @@ function UserMenu() {
         <DropdownMenuSeparator />
 
         <DropdownMenuItem
-  onClick={() => navigate({ to: '/profile' })}
->
-  Profile
-</DropdownMenuItem>
+          onClick={() => navigate({ to: '/profile' })}
+        >
+          Profile
+        </DropdownMenuItem>
 
         <DropdownMenuItem>
           Settings
@@ -117,13 +127,17 @@ function UserMenu() {
 
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={handleLogout}
+          className="text-destructive focus:text-destructive"
+        >
           Log out
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )
 }
+
 function GlobalSearch({
   open,
   onOpenChange,
@@ -209,8 +223,44 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
   const routerState = useRouterState()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [workspace, setWorkspace] = useState({
+  name: 'TeamFlow',
+  logo: '',
+})
+
+useEffect(() => {
+  async function loadWorkspaceBranding() {
+    try {
+      const response = await apiRequest<{
+        success: boolean
+        data: {
+          name: string
+          logo?: string
+        }
+      }>('/api/company/settings')
+
+      setWorkspace({
+        name: response.data.name || 'TeamFlow',
+        logo: response.data.logo || '',
+      })
+    } catch (error) {
+      console.error('Failed to load workspace branding:', error)
+    }
+  }
+
+  loadWorkspaceBranding()
+}, [])
 
   const currentPath = routerState.location.pathname
+  const userRole = sessionStorage.getItem('teamflow_role')
+
+const visibleNavItems = NAV_ITEMS.filter((item) => {
+  if (item.path === '/admin') {
+    return userRole === 'owner' || userRole === 'teamLeader'
+  }
+
+  return true
+})
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -253,39 +303,47 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
         ].join(' ')}
       >
         {/* Brand */}
-        <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-5">
-          <Link
-            to="/dashboard"
-            className="flex items-center gap-3"
-            onClick={() => setMobileOpen(false)}
-          >
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
-              TF
-            </div>
+<div className="flex h-16 items-center justify-between border-b border-sidebar-border px-5">
+  <Link
+    to="/dashboard"
+    className="flex min-w-0 items-center gap-3"
+    onClick={() => setMobileOpen(false)}
+  >
+    {workspace.logo ? (
+      <img
+        src={workspace.logo}
+        alt={`${workspace.name} logo`}
+        className="h-9 w-9 shrink-0 rounded-lg border bg-white object-contain p-0.5"
+      />
+    ) : (
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
+        {workspace.name.charAt(0).toUpperCase()}
+      </div>
+    )}
 
-            <div>
-              <p className="text-sm font-semibold tracking-tight">
-                TeamFlow
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Work Management
-              </p>
-            </div>
-          </Link>
+    <div className="min-w-0">
+      <p className="truncate text-sm font-semibold tracking-tight">
+        {workspace.name}
+      </p>
+      <p className="text-xs text-muted-foreground">
+        Work Management
+      </p>
+    </div>
+  </Link>
 
-          <button
-            type="button"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground md:hidden"
-            onClick={() => setMobileOpen(false)}
-            aria-label="Close menu"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+  <button
+    type="button"
+    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground md:hidden"
+    onClick={() => setMobileOpen(false)}
+    aria-label="Close menu"
+  >
+    <X className="h-5 w-5" />
+  </button>
+</div>
 
         {/* Navigation */}
         <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-          {NAV_ITEMS.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon
 
             const isActive =
@@ -337,15 +395,23 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
       <Menu className="h-5 w-5" />
     </button>
 
-    <div className="ml-3 flex items-center gap-2">
-      <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground">
-        TF
-      </div>
-
-      <span className="text-sm font-semibold">
-        TeamFlow
-      </span>
+    <div className="ml-3 flex min-w-0 items-center gap-2">
+  {workspace.logo ? (
+    <img
+      src={workspace.logo}
+      alt={`${workspace.name} logo`}
+      className="h-8 w-8 rounded-md border bg-white object-contain p-0.5"
+    />
+  ) : (
+    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground">
+      {workspace.name.charAt(0).toUpperCase()}
     </div>
+  )}
+
+  <span className="max-w-[160px] truncate text-sm font-semibold">
+    {workspace.name}
+  </span>
+</div>
   </div>
 
   <div className="flex items-center gap-1">

@@ -31,6 +31,17 @@ const userSchema = new Schema(
       required: true,
       select: false,
     },
+    passwordResetTokenHash: {
+  type: String,
+  default: undefined,
+  select: false,
+},
+
+passwordResetExpiresAt: {
+  type: Date,
+  default: undefined,
+  select: false,
+},
 
     companyId: {
       type: Schema.Types.ObjectId,

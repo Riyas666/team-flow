@@ -1,8 +1,7 @@
 
 import { useState } from 'react'
-import { useNavigate } from '@tanstack/react-router'
+import { useNavigate, Link } from '@tanstack/react-router'
 import { FolderKanban, LoaderCircle } from 'lucide-react'
-
 import { apiRequest } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -111,12 +110,22 @@ export default function Auth() {
                 required
               />
             </div>
+            <div className="flex justify-end">
+  <Link
+    to="/forgot-password"
+    className="text-sm font-medium text-primary hover:underline"
+  >
+    Forgot password?
+  </Link>
+</div>
+            
 
             {error && (
               <p className="text-sm text-destructive" role="alert">
                 {error}
               </p>
             )}
+            
 
             <Button
               type="submit"

@@ -2,7 +2,6 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors"
 import { connectDB } from "./config/db.js";
-import Company from "./models/Company.js";
 import authRoutes from "./routes/auth.routes.js";
 import {
   requireAuth,
@@ -16,6 +15,7 @@ import invitationRoutes from "./routes/invitation.routes.js";
 import activityRoutes from "./routes/activity.routes.js";
 import dashboardRoutes from "./routes/dashboard.routes.js";
 import userRoutes from "./routes/user.routes.js";
+import companyRoutes from "./routes/company.routes.js";
 
 
 const app = express();
@@ -57,6 +57,8 @@ app.use("/api/activities", activityRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 
 app.use("/api/users", userRoutes);
+
+app.use("/api/company", companyRoutes);
 
 app.get("/", (_req, res) => {
   res.json({
@@ -102,9 +104,17 @@ app.get(
     });
   },
 );
+async function startServer() {
+  try {
+    await connectDB();
 
-connectDB().then(() => {
-  app.listen(PORT, () => {
-    console.log(`TeamFlow server running on port ${PORT}`);
-  });
-});
+    app.listen(PORT, () => {
+      console.log(`TeamFlow server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error("Server startup failed:", error);
+    process.exit(1);
+  }
+}
+
+startServer();

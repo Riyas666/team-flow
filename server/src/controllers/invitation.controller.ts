@@ -85,9 +85,9 @@ export async function createInvitationHandler(
           message: "Invalid authentication context.",
         },
         FORBIDDEN: {
-          status: 403,
-          message: "You are not allowed to invite this role.",
-        },
+  status: 403,
+  message: "Only the workspace owner can invite members.",
+},
         INVALID_NAME: {
           status: 400,
           message: "Name must be between 2 and 100 characters.",

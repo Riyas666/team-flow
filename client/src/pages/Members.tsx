@@ -67,10 +67,13 @@ function getRoleLabel(role: Member['role']) {
 }
 
 export default function Members() {
+  const isOwner = sessionStorage.getItem('teamflow_role') === 'owner'
+
   const [members, setMembers] = useState<Member[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
+  const [updatingRoleId, setUpdatingRoleId] = useState<string | null>(null)
 
   const [isInviteOpen, setIsInviteOpen] = useState(false)
   const [inviteName, setInviteName] = useState('')
@@ -82,11 +85,13 @@ export default function Members() {
   const [inviteError, setInviteError] = useState('')
   const [invitation, setInvitation] =
     useState<InvitationResponse['invitation'] | null>(null)
+
   const [failedProfilePictures, setFailedProfilePictures] =
-  useState<string[]>([])
+    useState<string[]>([])
+
   const [memberToDelete, setMemberToDelete] = useState<Member | null>(null)
-const [isDeleting, setIsDeleting] = useState(false)
-const [deleteError, setDeleteError] = useState('')
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
 
   async function fetchMembers() {
     try {
@@ -115,6 +120,8 @@ const [deleteError, setDeleteError] = useState('')
   )
 
   function openInviteDialog() {
+    if (!isOwner) return
+
     setInviteName('')
     setInviteEmail('')
     setInviteRole('employee')
@@ -125,6 +132,9 @@ const [deleteError, setDeleteError] = useState('')
 
   async function handleInviteSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+
+    if (!isOwner) return
+
     setInviteError('')
     setIsInviting(true)
 
@@ -152,68 +162,110 @@ const [deleteError, setDeleteError] = useState('')
   }
 
   async function handleDeleteMember() {
-  if (!memberToDelete || isDeleting) return
+    if (!isOwner || !memberToDelete || isDeleting) return
 
-  setIsDeleting(true)
-  setDeleteError('')
+    setIsDeleting(true)
+    setDeleteError('')
 
-  try {
-    await apiRequest(
-      `/api/members/${encodeURIComponent(memberToDelete._id)}`,
-      { method: 'DELETE' },
-    )
+    try {
+      await apiRequest(
+        `/api/members/${encodeURIComponent(memberToDelete._id)}`,
+        { method: 'DELETE' },
+      )
 
-    setMembers((current) =>
-      current.filter((member) => member._id !== memberToDelete._id),
-    )
+      setMembers((current) =>
+        current.filter((member) => member._id !== memberToDelete._id),
+      )
 
-    setMemberToDelete(null)
-  } catch (err) {
-    setDeleteError(
-      err instanceof Error ? err.message : 'Failed to remove member.',
-    )
-  } finally {
-    setIsDeleting(false)
+      setMemberToDelete(null)
+    } catch (err) {
+      setDeleteError(
+        err instanceof Error ? err.message : 'Failed to remove member.',
+      )
+    } finally {
+      setIsDeleting(false)
+    }
   }
-}
 
-async function handleMemberStatusChange(member: Member) {
-  if (
-    member.role === 'owner' ||
-    member.status === 'invited' ||
-    member.status === 'expired'
+  async function handleMemberStatusChange(member: Member) {
+    if (
+      !isOwner ||
+      member.role === 'owner' ||
+      member.status === 'invited' ||
+      member.status === 'expired'
+    ) {
+      return
+    }
+
+    const isActive = !member.isActive
+
+    try {
+      await apiRequest(`/api/members/${encodeURIComponent(member._id)}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ isActive }),
+      })
+
+      setMembers((current) =>
+        current.map((item) =>
+          item._id === member._id
+            ? {
+                ...item,
+                isActive,
+                status: isActive ? 'active' : 'inactive',
+              }
+            : item,
+        ),
+      )
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to update member status.',
+      )
+    }
+  }
+
+  // Owner-only role management.
+  async function handleMemberRoleChange(
+    member: Member,
+    role: 'employee' | 'teamLeader',
   ) {
-    return
+    if (
+      !isOwner ||
+      member.role === 'owner' ||
+      (member.status !== 'active' && member.status !== 'inactive') ||
+      updatingRoleId
+    ) {
+      return
+    }
+
+    if (member.role === role) return
+
+    setUpdatingRoleId(member._id)
+    setError('')
+
+    try {
+      await apiRequest(
+        `/api/members/${encodeURIComponent(member._id)}/role`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ role }),
+        },
+      )
+
+      setMembers((current) =>
+        current.map((item) =>
+          item._id === member._id ? { ...item, role } : item,
+        ),
+      )
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Failed to update member role.',
+      )
+    } finally {
+      setUpdatingRoleId(null)
+    }
   }
-
-  const isActive = !member.isActive
-
-  try {
-    await apiRequest(`/api/members/${encodeURIComponent(member._id)}/status`, {
-      method: 'PATCH',
-      body: JSON.stringify({ isActive }),
-    })
-
-    setMembers((current) =>
-      current.map((item) =>
-        item._id === member._id
-          ? {
-              ...item,
-              isActive,
-              status: isActive ? 'active' : 'inactive',
-            }
-          : item,
-      ),
-    )
-  } catch (err) {
-    setError(
-      err instanceof Error
-        ? err.message
-        : 'Failed to update member status.',
-    )
-  }
-}
-
 
   return (
     <div className="space-y-6">
@@ -225,14 +277,16 @@ async function handleMemberStatusChange(member: Member) {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={openInviteDialog}
-          className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-        >
-          <Plus className="h-4 w-4" />
-          Invite Member
-        </button>
+        {isOwner && (
+          <button
+            type="button"
+            onClick={openInviteDialog}
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" />
+            Invite Member
+          </button>
+        )}
       </div>
 
       <div className="relative max-w-md">
@@ -273,24 +327,24 @@ async function handleMemberStatusChange(member: Member) {
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-xs font-semibold text-primary-foreground">
-  {member.profilePicture &&
-  !failedProfilePictures.includes(member._id) ? (
-    <img
-      src={member.profilePicture}
-      alt={`${member.name}'s profile`}
-      className="h-full w-full object-cover"
-      onError={() =>
-        setFailedProfilePictures((previous) =>
-          previous.includes(member._id)
-            ? previous
-            : [...previous, member._id],
-        )
-      }
-    />
-  ) : (
-    getInitials(member.name)
-  )}
-</div>
+                    {member.profilePicture &&
+                    !failedProfilePictures.includes(member._id) ? (
+                      <img
+                        src={member.profilePicture}
+                        alt={`${member.name}'s profile`}
+                        className="h-full w-full object-cover"
+                        onError={() =>
+                          setFailedProfilePictures((previous) =>
+                            previous.includes(member._id)
+                              ? previous
+                              : [...previous, member._id],
+                          )
+                        }
+                      />
+                    ) : (
+                      getInitials(member.name)
+                    )}
+                  </div>
 
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">
@@ -304,75 +358,99 @@ async function handleMemberStatusChange(member: Member) {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
-  {/* Role badge */}
-  <span className="flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium">
-    {member.role === 'owner' || member.role === 'teamLeader' ? (
-      <Shield className="h-3 w-3" />
-    ) : (
-      <UserRound className="h-3 w-3" />
-    )}
-    {getRoleLabel(member.role)}
-  </span>
+                  {/* Role badge */}
+                  <span className="flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium">
+                    {member.role === 'owner' || member.role === 'teamLeader' ? (
+                      <Shield className="h-3 w-3" />
+                    ) : (
+                      <UserRound className="h-3 w-3" />
+                    )}
+                    {getRoleLabel(member.role)}
+                  </span>
 
-  {/* Status badge */}
-  <span
-    className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-      member.status === 'active'
-        ? 'bg-green-100 text-green-700'
-        : member.status === 'inactive'
-          ? 'bg-gray-100 text-gray-700'
-          : member.status === 'invited'
-            ? 'bg-blue-100 text-blue-700'
-            : 'bg-orange-100 text-orange-700'
-    }`}
-  >
-    {member.status.charAt(0).toUpperCase() + member.status.slice(1)}
-  </span>
+                  {/* Owner-only role selector for existing members */}
+                  {isOwner &&
+                    member.role !== 'owner' &&
+                    (member.status === 'active' ||
+                      member.status === 'inactive') && (
+                      <select
+                        value={member.role}
+                        disabled={updatingRoleId !== null}
+                        onChange={(e) =>
+                          void handleMemberRoleChange(
+                            member,
+                            e.target.value as 'employee' | 'teamLeader',
+                          )
+                        }
+                        className="h-8 rounded-md border bg-background px-2 text-xs disabled:opacity-50"
+                        aria-label={`Change role for ${member.name}`}
+                      >
+                        <option value="employee">Employee</option>
+                        <option value="teamLeader">Team Leader</option>
+                      </select>
+                    )}
 
-  {/* Activate / Deactivate real users */}
-  {member.status === 'active' || member.status === 'inactive' ? (
-    <button
-      type="button"
-      onClick={() => void handleMemberStatusChange(member)}
-      disabled={member.role === 'owner'}
-      className="inline-flex h-8 items-center gap-1 rounded-md border px-2 text-xs font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
-      aria-label={`${member.isActive ? 'Deactivate' : 'Activate'} ${member.name}`}
-    >
-      {member.isActive ? (
-        <>
-          <UserX className="h-3.5 w-3.5" />
-          Deactivate
-        </>
-      ) : (
-        <>
-          <UserCheck className="h-3.5 w-3.5" />
-          Activate
-        </>
-      )}
-    </button>
-  ) : (
-    /* Delete pending or expired invitations */
-    <button
-      type="button"
-      onClick={() => {
-        setDeleteError('')
-        setMemberToDelete(member)
-      }}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-      aria-label={`Delete invitation for ${member.name}`}
-      title="Delete invitation"
-    >
-      <Trash2 className="h-4 w-4" />
-    </button>
-  )}
-</div>
+                  {/* Status badge */}
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                      member.status === 'active'
+                        ? 'bg-green-100 text-green-700'
+                        : member.status === 'inactive'
+                          ? 'bg-gray-100 text-gray-700'
+                          : member.status === 'invited'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-orange-100 text-orange-700'
+                    }`}
+                  >
+                    {member.status.charAt(0).toUpperCase() +
+                      member.status.slice(1)}
+                  </span>
+
+                  {/* Owner-only member management */}
+                  {isOwner &&
+                    (member.status === 'active' ||
+                    member.status === 'inactive' ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleMemberStatusChange(member)}
+                        disabled={member.role === 'owner'}
+                        className="inline-flex h-8 items-center gap-1 rounded-md border px-2 text-xs font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-label={`${member.isActive ? 'Deactivate' : 'Activate'} ${member.name}`}
+                      >
+                        {member.isActive ? (
+                          <>
+                            <UserX className="h-3.5 w-3.5" />
+                            Deactivate
+                          </>
+                        ) : (
+                          <>
+                            <UserCheck className="h-3.5 w-3.5" />
+                            Activate
+                          </>
+                        )}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDeleteError('')
+                          setMemberToDelete(member)
+                        }}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        aria-label={`Delete invitation for ${member.name}`}
+                        title="Delete invitation"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    ))}
+                </div>
               </div>
             ))
           )}
         </CardContent>
       </Card>
 
-      {isInviteOpen && (
+      {isOwner && isInviteOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4"
           onMouseDown={(e) => {
@@ -396,10 +474,10 @@ async function handleMemberStatusChange(member: Member) {
                   {invitation ? 'Invitation created' : 'Invite a member'}
                 </h2>
                 <p className="text-sm text-muted-foreground">
-  {invitation
-    ? `An invitation email has been sent to ${invitation.email}.`
-    : 'Invite someone to join your workspace.'}
-</p>
+                  {invitation
+                    ? `An invitation email has been sent to ${invitation.email}.`
+                    : 'Invite someone to join your workspace.'}
+                </p>
               </div>
 
               <button
@@ -530,59 +608,60 @@ async function handleMemberStatusChange(member: Member) {
           </div>
         </div>
       )}
-      {memberToDelete && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-    <div
-      role="alertdialog"
-      aria-modal="true"
-      aria-labelledby="delete-member-title"
-      aria-describedby="delete-member-description"
-      className="w-full max-w-md rounded-xl border bg-background p-6 shadow-xl"
-    >
-      <h2 id="delete-member-title" className="text-lg font-semibold">
-        Remove member?
-      </h2>
 
-      <p
-        id="delete-member-description"
-        className="mt-2 text-sm text-muted-foreground"
-      >
-        Remove {memberToDelete.name} from this workspace? Their account
-        will be deactivated, not permanently deleted.
-      </p>
+      {isOwner && memberToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-member-title"
+            aria-describedby="delete-member-description"
+            className="w-full max-w-md rounded-xl border bg-background p-6 shadow-xl"
+          >
+            <h2 id="delete-member-title" className="text-lg font-semibold">
+              Remove member?
+            </h2>
 
-      {deleteError && (
-        <p className="mt-3 text-sm text-destructive" role="alert">
-          {deleteError}
-        </p>
+            <p
+              id="delete-member-description"
+              className="mt-2 text-sm text-muted-foreground"
+            >
+              Remove {memberToDelete.name} from this workspace? Their account
+              will be deactivated, not permanently deleted.
+            </p>
+
+            {deleteError && (
+              <p className="mt-3 text-sm text-destructive" role="alert">
+                {deleteError}
+              </p>
+            )}
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => {
+                  setMemberToDelete(null)
+                  setDeleteError('')
+                }}
+                className="rounded-md border px-4 py-2 text-sm hover:bg-accent disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => void handleDeleteMember()}
+                className="inline-flex items-center gap-2 rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+              >
+                {isDeleting && <Loader2 className="h-4 w-4 animate-spin" />}
+                {isDeleting ? 'Removing...' : 'Remove member'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
-
-      <div className="mt-6 flex justify-end gap-2">
-        <button
-          type="button"
-          disabled={isDeleting}
-          onClick={() => {
-            setMemberToDelete(null)
-            setDeleteError('')
-          }}
-          className="rounded-md border px-4 py-2 text-sm hover:bg-accent disabled:opacity-50"
-        >
-          Cancel
-        </button>
-
-        <button
-          type="button"
-          disabled={isDeleting}
-          onClick={() => void handleDeleteMember()}
-          className="inline-flex items-center gap-2 rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
-        >
-          {isDeleting && <Loader2 className="h-4 w-4 animate-spin" />}
-          {isDeleting ? 'Removing...' : 'Remove member'}
-        </button>
-      </div>
-    </div>
-  </div>
-)}
     </div>
   )
 }

@@ -1,11 +1,14 @@
 
 import { Router } from "express";
-import { listMembersHandler,
-         deleteMemberHandler,
-         updateMemberStatusHandler
- } from "../controllers/member.controller.js";
 import { requireAuth } from "../middleware/auth.middleware.js";
-import { authorize } from "../middleware/authorize.middleware.js"
+import { authorize } from "../middleware/authorize.middleware.js";
+
+import {
+  listMembersHandler,
+  deleteMemberHandler,
+  updateMemberStatusHandler,
+  updateMemberRoleHandler,
+} from "../controllers/member.controller.js";
 
 const router = Router();
 
@@ -15,13 +18,20 @@ router.get("/", listMembersHandler);
 
 router.delete(
   "/:memberId",
-  authorize("owner", "teamLeader"),
+  authorize("owner"),
   deleteMemberHandler,
 );
 
 router.patch(
   "/:memberId/status",
-  authorize("owner", "teamLeader"),
+  authorize("owner"),
   updateMemberStatusHandler,
 );
+
+router.patch(
+  "/:memberId/role",
+  authorize("owner"),
+  updateMemberRoleHandler,
+);
+
 export default router;

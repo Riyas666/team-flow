@@ -1,37 +1,70 @@
+
 import {
   FolderKanban,
-  ListTodo,
   Settings,
   ShieldCheck,
   Users,
 } from 'lucide-react'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { useNavigate } from '@tanstack/react-router'
 
-const stats = [
+const adminSections = [
   {
-    title: 'Total Members',
-    value: '24',
+    title: 'Manage Members',
+    description: 'View and manage workspace members.',
     icon: Users,
+    roles: ['owner'],
   },
   {
-    title: 'Total Projects',
-    value: '12',
+    title: 'Workspace Settings',
+    description: 'Configure workspace preferences and settings.',
+    icon: Settings,
+    roles: ['owner'],
+  },
+  {
+    title: 'Project Management',
+    description: 'Create, manage and organize workspace projects.',
     icon: FolderKanban,
-  },
-  {
-    title: 'Total Tasks',
-    value: '86',
-    icon: ListTodo,
-  },
-  {
-    title: 'Admins',
-    value: '3',
-    icon: ShieldCheck,
+    roles: ['owner', 'teamLeader'],
   },
 ]
 
 export default function Admin() {
+  const navigate = useNavigate()
+  const userRole = sessionStorage.getItem('teamflow_role')
+
+  const isOwner = userRole === 'owner'
+  const isTeamLeader = userRole === 'teamLeader'
+
+  if (!isOwner && !isTeamLeader) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+          <ShieldCheck className="mb-4 h-10 w-10 text-muted-foreground" />
+
+          <h2 className="text-lg font-semibold">
+            Access Restricted
+          </h2>
+
+          <p className="mt-2 text-sm text-muted-foreground">
+            You do not have permission to access the Admin section.
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const visibleSections = adminSections.filter((section) =>
+    section.roles.includes(userRole ?? ''),
+  )
+
   return (
     <div className="space-y-6">
       <div>
@@ -40,123 +73,57 @@ export default function Admin() {
         </h1>
 
         <p className="text-sm text-muted-foreground">
-          Manage your workspace and monitor system activity.
+          Manage your workspace and administrative settings.
         </p>
       </div>
 
-      {/* Statistics */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {stats.map((stat) => {
-          const Icon = stat.icon
+      <div className="grid gap-4 sm:grid-cols-2">
+        {visibleSections.map((section) => {
+          const Icon = section.icon
 
           return (
-            <Card key={stat.title}>
-              <CardContent className="flex items-center justify-between p-6">
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    {stat.title}
-                  </p>
+            <Card
+  key={section.title}
+  className="cursor-pointer transition-colors hover:bg-accent"
+  onClick={() => {
+    if (section.title === 'Workspace Settings') {
+      navigate({ to: '/workspace-settings' })
+    }
 
-                  <p className="mt-2 text-2xl font-semibold">
-                    {stat.value}
-                  </p>
-                </div>
+    if (section.title === 'Manage Members') {
+      navigate({ to: '/members' })
+    }
 
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                  <Icon className="h-5 w-5 text-primary" />
-                </div>
-              </CardContent>
-            </Card>
+    if (section.title === 'Project Management') {
+      navigate({ to: '/projects' })
+    }
+  }}
+>
+  <CardHeader>
+    <div className="flex items-center gap-3">
+      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+        <Icon className="h-5 w-5 text-primary" />
+      </div>
+
+      <div>
+        <CardTitle className="text-base">
+          {section.title}
+        </CardTitle>
+
+        <CardDescription className="mt-1">
+          {section.description}
+        </CardDescription>
+      </div>
+    </div>
+  </CardHeader>
+</Card>
           )
         })}
       </div>
 
-      {/* Admin Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            Administration
-          </CardTitle>
-        </CardHeader>
-
-        <CardContent className="grid gap-3 sm:grid-cols-2">
-          <button
-            type="button"
-            className="flex items-center gap-3 rounded-lg border p-4 text-left transition-colors hover:bg-accent"
-          >
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-              <Users className="h-4 w-4 text-primary" />
-            </div>
-
-            <div>
-              <p className="text-sm font-medium">
-                Manage Members
-              </p>
-
-              <p className="text-xs text-muted-foreground">
-                Add, remove and manage workspace members.
-              </p>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            className="flex items-center gap-3 rounded-lg border p-4 text-left transition-colors hover:bg-accent"
-          >
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-              <ShieldCheck className="h-4 w-4 text-primary" />
-            </div>
-
-            <div>
-              <p className="text-sm font-medium">
-                Roles & Permissions
-              </p>
-
-              <p className="text-xs text-muted-foreground">
-                Control access and workspace permissions.
-              </p>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            className="flex items-center gap-3 rounded-lg border p-4 text-left transition-colors hover:bg-accent"
-          >
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-              <Settings className="h-4 w-4 text-primary" />
-            </div>
-
-            <div>
-              <p className="text-sm font-medium">
-                Workspace Settings
-              </p>
-
-              <p className="text-xs text-muted-foreground">
-                Configure workspace preferences.
-              </p>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            className="flex items-center gap-3 rounded-lg border p-4 text-left transition-colors hover:bg-accent"
-          >
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-              <FolderKanban className="h-4 w-4 text-primary" />
-            </div>
-
-            <div>
-              <p className="text-sm font-medium">
-                Project Management
-              </p>
-
-              <p className="text-xs text-muted-foreground">
-                Manage workspace projects.
-              </p>
-            </div>
-          </button>
-        </CardContent>
-      </Card>
+      <div className="text-xs text-muted-foreground">
+        Signed in as: {isOwner ? 'Owner' : 'Team Leader'}
+      </div>
     </div>
   )
 }

@@ -2,7 +2,10 @@
 import type { Request, Response } from "express";
 import { 
   registerOwner,
-  loginUser
+  loginUser,
+  requestPasswordReset,
+  resetUserPassword,
+
  } from "../services/auth.service.js";
 
 export async function register(req: Request, res: Response) {
@@ -102,6 +105,73 @@ export async function login(req: Request, res: Response) {
 
     return res.status(500).json({
       message: "Login failed. Please try again.",
+    });
+  }
+}
+
+export async function forgotPassword(req: Request, res: Response) {
+  try {
+    const { email } = req.body ?? {};
+
+    if (typeof email !== "string" || !email.trim()) {
+      return res.status(400).json({
+        message: "Please provide a valid email address.",
+      });
+    }
+
+    await requestPasswordReset(email);
+
+    return res.status(200).json({
+      message: "If an account exists with that email, a reset link will be sent.",
+    });
+  } catch (error) {
+    console.error("Forgot password failed:", error);
+
+    return res.status(500).json({
+      message: "Unable to process your request. Please try again later.",
+    });
+  }
+}
+
+export async function resetPassword(req: Request, res: Response) {
+  try {
+    const { token, password } = req.body ?? {};
+
+    if (
+      typeof token !== "string" ||
+      typeof password !== "string" ||
+      !token ||
+      !password
+    ) {
+      return res.status(400).json({
+        message: "Reset token and new password are required.",
+      });
+    }
+
+    await resetUserPassword(token, password);
+
+    return res.status(200).json({
+      message: "Password reset successfully. Please sign in.",
+    });
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "INVALID_OR_EXPIRED_RESET_TOKEN") {
+        return res.status(400).json({
+          message: "This reset link is invalid or has expired.",
+        });
+      }
+
+      if (error.message === "VALIDATION_PASSWORD") {
+        return res.status(400).json({
+          message: "Password must be between 8 and 72 characters.",
+        });
+      }
+    }
+
+    console.error("Password reset failed:", error);
+
+    return res.status(500).json({
+      message: "Unable to reset password. Please try again.",
     });
   }
 }

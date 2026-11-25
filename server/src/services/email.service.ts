@@ -65,6 +65,53 @@ export async function sendInvitationEmail(
   return data;
 }
 
+interface PasswordResetEmailInput {
+  name: string;
+  email: string;
+  token: string;
+}
+
+export async function sendPasswordResetEmail(
+  input: PasswordResetEmailInput,
+) {
+  const appBaseUrl = process.env.APP_BASE_URL;
+
+  if (!appBaseUrl) {
+    throw new Error("APP_BASE_URL is missing.");
+  }
+
+  const resetUrl = new URL("/reset-password", appBaseUrl);
+  resetUrl.searchParams.set("token", input.token);
+
+  const { data, error } = await resend.emails.send({
+    from: "TeamFlow <onboarding@resend.dev>",
+    to: [input.email],
+    subject: "Reset your TeamFlow password",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 560px; margin: auto;">
+        <h2>Reset your password</h2>
+        <p>Hi ${escapeHtml(input.name)},</p>
+        <p>We received a request to reset your TeamFlow password.</p>
+        <p>
+          <a href="${escapeHtml(resetUrl.toString())}"
+             style="background:#4f46e5;color:white;padding:12px 20px;text-decoration:none;border-radius:6px;">
+            Reset Password
+          </a>
+        </p>
+        <p>This link expires in 15 minutes and can only be used once.</p>
+        <p>If you didn't request this, you can ignore this email.</p>
+      </div>
+    `,
+  });
+
+  if (error) {
+    console.error("Password reset email failed:", error.message);
+    throw new Error("PASSWORD_RESET_EMAIL_FAILED");
+  }
+
+  return data;
+}
+
 
 function escapeHtml(value: string): string {
   const entities: Record<string, string> = {

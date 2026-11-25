@@ -12,11 +12,10 @@ const router = Router();
 router.post(
   "/",
   requireAuth,
-  authorize("owner", "teamLeader"),
+  authorize("owner"),
   createInvitationHandler,
 );
 
 router.post("/accept", acceptInvitationHandler);
 
 export default router;
-

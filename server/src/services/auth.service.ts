@@ -4,6 +4,8 @@ import bcrypt from "bcryptjs";
 import Company from "../models/Company.js";
 import User from "../models/User.js";
 import jwt from "jsonwebtoken";
+import { randomBytes, createHash } from "node:crypto";
+import { sendPasswordResetEmail } from "./email.service.js";
 
 interface RegisterInput {
   name: string;
@@ -173,4 +175,101 @@ export async function loginUser(input: LoginInput) {
       role: user.role,
     },
   };
+}
+
+export async function requestPasswordReset(emailInput: string) {
+  const email = emailInput.trim().toLowerCase();
+
+  const user = await User.findOne({
+    email,
+    isActive: true,
+  });
+
+  // Never reveal whether an account exists.
+  if (!user) return;
+
+  const rawToken = randomBytes(32).toString("hex");
+
+  const tokenHash = createHash("sha256")
+    .update(rawToken)
+    .digest("hex");
+
+  user.set({
+    passwordResetTokenHash: tokenHash,
+    passwordResetExpiresAt: new Date(Date.now() + 15 * 60 * 1000),
+  });
+
+  await user.save();
+
+  try {
+    await sendPasswordResetEmail({
+      name: user.name,
+      email: user.email,
+      token: rawToken,
+    });
+  } catch (error) {
+    // Remove the token if email delivery fails.
+    await User.updateOne(
+      { _id: user._id },
+      {
+        $unset: {
+          passwordResetTokenHash: 1,
+          passwordResetExpiresAt: 1,
+        },
+      },
+    );
+
+    throw error;
+  }
+}
+
+export async function resetUserPassword(
+  token: string,
+  newPassword: string,
+) {
+  if (newPassword.length < 8 || newPassword.length > 72) {
+    throw new Error("VALIDATION_PASSWORD");
+  }
+
+  if (!token || token.length !== 64) {
+    throw new Error("INVALID_OR_EXPIRED_RESET_TOKEN");
+  }
+
+  const tokenHash = createHash("sha256")
+    .update(token)
+    .digest("hex");
+
+  const user = await User.findOne({
+    passwordResetTokenHash: tokenHash,
+    passwordResetExpiresAt: { $gt: new Date() },
+    isActive: true,
+  }).select("+passwordResetTokenHash +passwordResetExpiresAt");
+
+  if (!user) {
+    throw new Error("INVALID_OR_EXPIRED_RESET_TOKEN");
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+
+  // Update password and consume reset token atomically.
+  const result = await User.updateOne(
+    {
+      _id: user._id,
+      passwordResetTokenHash: tokenHash,
+      passwordResetExpiresAt: { $gt: new Date() },
+    },
+    {
+      $set: {
+        passwordHash,
+      },
+      $unset: {
+        passwordResetTokenHash: 1,
+        passwordResetExpiresAt: 1,
+      },
+    },
+  );
+
+  if (result.modifiedCount !== 1) {
+    throw new Error("INVALID_OR_EXPIRED_RESET_TOKEN");
+  }
 }

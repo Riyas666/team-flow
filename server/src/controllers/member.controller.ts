@@ -1,10 +1,12 @@
 
 import type { Response } from "express";
 import type { AuthenticatedRequest } from "../middleware/auth.middleware.js";
-import { listMembers,
-         deleteMember,
-         updateMemberStatus
- } from "../services/member.service.js";
+import {
+  listMembers,
+  deleteMember,
+  updateMemberStatus,
+  updateMemberRole,
+} from "../services/member.service.js";
 
 export async function listMembersHandler(
   req: AuthenticatedRequest,
@@ -35,7 +37,6 @@ export async function listMembersHandler(
   }
 }
 
-
 export async function deleteMemberHandler(
   req: AuthenticatedRequest,
   res: Response,
@@ -49,13 +50,13 @@ export async function deleteMemberHandler(
 
     const memberId = req.params.memberId;
 
-if (!memberId || Array.isArray(memberId)) {
-  return res.status(400).json({
-    message: "Invalid member ID.",
-  });
-}
+    if (!memberId || Array.isArray(memberId)) {
+      return res.status(400).json({
+        message: "Invalid member ID.",
+      });
+    }
 
-const member = await deleteMember(memberId, req.auth);
+    const member = await deleteMember(memberId, req.auth);
 
     return res.status(200).json({
       message: "Member removed successfully.",
@@ -63,10 +64,7 @@ const member = await deleteMember(memberId, req.auth);
     });
   } catch (error: unknown) {
     if (error instanceof Error) {
-      const errors: Record<
-        string,
-        { status: number; message: string }
-      > = {
+      const errors: Record<string, { status: number; message: string }> = {
         INVALID_AUTH_CONTEXT: {
           status: 401,
           message: "Invalid authentication context.",
@@ -77,7 +75,7 @@ const member = await deleteMember(memberId, req.auth);
         },
         FORBIDDEN: {
           status: 403,
-          message: "You are not allowed to remove this member.",
+          message: "Only the workspace owner can remove members.",
         },
         CANNOT_REMOVE_SELF: {
           status: 400,
@@ -109,7 +107,6 @@ const member = await deleteMember(memberId, req.auth);
     });
   }
 }
-
 
 export async function updateMemberStatusHandler(
   req: AuthenticatedRequest,
@@ -162,7 +159,7 @@ export async function updateMemberStatusHandler(
         },
         FORBIDDEN: {
           status: 403,
-          message: "You are not allowed to change this member's status.",
+          message: "Only the workspace owner can change member status.",
         },
         CANNOT_CHANGE_OWN_STATUS: {
           status: 400,
@@ -191,6 +188,89 @@ export async function updateMemberStatusHandler(
 
     return res.status(500).json({
       message: "Failed to update member status.",
+    });
+  }
+}
+
+export async function updateMemberRoleHandler(
+  req: AuthenticatedRequest,
+  res: Response,
+) {
+  try {
+    if (!req.auth) {
+      return res.status(401).json({
+        message: "Authentication required.",
+      });
+    }
+
+    const memberId = req.params.memberId;
+    const { role } = req.body ?? {};
+
+    if (!memberId || Array.isArray(memberId)) {
+      return res.status(400).json({
+        message: "Invalid member ID.",
+      });
+    }
+
+    if (role !== "employee" && role !== "teamLeader") {
+      return res.status(400).json({
+        message: "Choose a valid member role.",
+      });
+    }
+
+    const member = await updateMemberRole(
+      memberId,
+      role,
+      req.auth,
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Member role updated successfully.",
+      member,
+    });
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      const errors: Record<string, { status: number; message: string }> = {
+        INVALID_AUTH_CONTEXT: {
+          status: 401,
+          message: "Invalid authentication context.",
+        },
+        INVALID_MEMBER_ID: {
+          status: 400,
+          message: "Invalid member ID.",
+        },
+        FORBIDDEN: {
+          status: 403,
+          message: "Only the workspace owner can change member roles.",
+        },
+        INVALID_ROLE: {
+          status: 400,
+          message: "Choose a valid member role.",
+        },
+        CANNOT_CHANGE_OWN_ROLE: {
+          status: 403,
+          message: "You cannot change your own role.",
+        },
+        MEMBER_NOT_FOUND: {
+          status: 404,
+          message: "Member not found in your workspace.",
+        },
+      };
+
+      const knownError = errors[error.message];
+
+      if (knownError) {
+        return res.status(knownError.status).json({
+          message: knownError.message,
+        });
+      }
+    }
+
+    console.error("Update member role error:", error);
+
+    return res.status(500).json({
+      message: "Failed to update member role.",
     });
   }
 }
