@@ -197,22 +197,22 @@ export default function Dashboard() {
         </p>
       )}
 
-      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-4">
         {statDefinitions.map((stat) => {
           const Icon = stat.icon
           const value = summary?.[stat.key]
 
           return (
-            <Card key={stat.key} className="rounded-xl">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                <CardTitle className="text-sm font-medium">
+            <Card key={stat.key} className="min-w-0 rounded-xl">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 pb-2 pt-4 sm:px-6 sm:pb-3 sm:pt-6">
+                <CardTitle className="min-w-0 text-xs font-medium leading-tight sm:text-sm">
                   {stat.title}
                 </CardTitle>
-                <Icon className="h-5 w-5 text-muted-foreground" />
+                <Icon className="h-4 w-4 shrink-0 text-muted-foreground sm:h-5 sm:w-5" />
               </CardHeader>
 
-              <CardContent>
-                <div className="text-2xl font-bold">
+              <CardContent className="px-3 pb-4 sm:px-6 sm:pb-6">
+                <div className="text-xl font-bold sm:text-2xl">
                   {loadingSummary ? (
                     <LoaderCircle className="h-6 w-6 animate-spin text-muted-foreground" />
                   ) : summaryError ? (
@@ -222,7 +222,7 @@ export default function Dashboard() {
                   )}
                 </div>
 
-                <p className="mt-2 text-xs text-muted-foreground">
+                <p className="mt-2 text-[11px] leading-tight text-muted-foreground sm:text-xs">
                   {stat.description}
                 </p>
               </CardContent>
