@@ -36,14 +36,16 @@ interface DashboardSummary {
 
 interface ActivityItem {
   _id: string
-  action:
-    | 'project_created'
-    | 'task_created'
-    | 'task_assigned'
-    | 'task_status_updated'
+  action: string
   details: string
   createdAt: string
   actorId?: { name?: string } | null
+}
+
+interface ActivityResponse {
+  activities: ActivityItem[]
+  hasMore: boolean
+  nextCursor: string | null
 }
 
 const statDefinitions = [
@@ -73,15 +75,18 @@ const statDefinitions = [
   },
 ] as const
 
-function formatAction(action: ActivityItem['action']) {
-  const labels: Record<ActivityItem['action'], string> = {
+function formatAction(action: string) {
+  const labels: Record<string, string> = {
     project_created: 'Project created',
+    project_updated: 'Project updated',
     task_created: 'Task created',
     task_assigned: 'Task assigned',
     task_status_updated: 'Task status updated',
+    task_updated: 'Task updated',
+    task_deleted: 'Task deleted',
   }
 
-  return labels[action]
+  return labels[action] ?? 'Activity'
 }
 
 export default function Dashboard() {
@@ -91,7 +96,10 @@ export default function Dashboard() {
 
   const [activities, setActivities] = useState<ActivityItem[]>([])
   const [loadingActivities, setLoadingActivities] = useState(true)
+  const [loadingMoreActivities, setLoadingMoreActivities] = useState(false)
   const [activityError, setActivityError] = useState('')
+  const [activityCursor, setActivityCursor] = useState<string | null>(null)
+  const [hasMoreActivities, setHasMoreActivities] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -99,7 +107,7 @@ export default function Dashboard() {
     async function loadDashboard() {
       const [summaryResult, activityResult] = await Promise.allSettled([
         apiRequest<DashboardSummary>('/api/dashboard/summary'),
-        apiRequest<{ activities: ActivityItem[] }>('/api/activities'),
+        apiRequest<ActivityResponse>('/api/activities?limit=5'),
       ])
 
       if (cancelled) return
@@ -112,6 +120,8 @@ export default function Dashboard() {
 
       if (activityResult.status === 'fulfilled') {
         setActivities(activityResult.value.activities ?? [])
+        setActivityCursor(activityResult.value.nextCursor)
+        setHasMoreActivities(activityResult.value.hasMore)
       } else {
         setActivityError('Unable to load recent activity.')
       }
@@ -127,12 +137,47 @@ export default function Dashboard() {
     }
   }, [])
 
-  // const stats = summary
-  //   ? statDefinitions.map((stat) => ({
-  //       ...stat,
-  //       value: summary[stat.key],
-  //     }))
-  //   : []
+  async function handleLoadMoreActivities() {
+    if (
+      !activityCursor ||
+      !hasMoreActivities ||
+      loadingMoreActivities
+    ) {
+      return
+    }
+
+    try {
+      setLoadingMoreActivities(true)
+      setActivityError('')
+
+      const response = await apiRequest<ActivityResponse>(
+        `/api/activities?limit=5&cursor=${encodeURIComponent(activityCursor)}`,
+      )
+
+      setActivities((current) => {
+        const existingIds = new Set(
+          current.map((activity) => activity._id),
+        )
+
+        const newActivities = response.activities.filter(
+          (activity) => !existingIds.has(activity._id),
+        )
+
+        return [...current, ...newActivities]
+      })
+
+      setActivityCursor(response.nextCursor)
+      setHasMoreActivities(response.hasMore)
+    } catch (err) {
+      setActivityError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to load more activities.',
+      )
+    } finally {
+      setLoadingMoreActivities(false)
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -140,6 +185,7 @@ export default function Dashboard() {
         <h1 className="text-2xl font-semibold tracking-tight">
           Dashboard
         </h1>
+
         <p className="text-sm text-muted-foreground">
           Overview of your TeamFlow workspace.
         </p>
@@ -175,6 +221,7 @@ export default function Dashboard() {
                     value ?? 0
                   )}
                 </div>
+
                 <p className="mt-2 text-xs text-muted-foreground">
                   {stat.description}
                 </p>
@@ -191,6 +238,7 @@ export default function Dashboard() {
               <CheckSquare className="h-5 w-5 text-muted-foreground" />
               Task Completion
             </CardTitle>
+
             <p className="text-sm text-muted-foreground">
               Your task completion progress
             </p>
@@ -209,6 +257,7 @@ export default function Dashboard() {
                   <span className="text-3xl font-bold">
                     {summary.completionPercentage}%
                   </span>
+
                   <span className="text-sm text-muted-foreground">
                     {summary.completedTasks} of {summary.totalTasks} completed
                   </span>
@@ -235,6 +284,7 @@ export default function Dashboard() {
                     <p className="text-sm text-muted-foreground">
                       Remaining tasks
                     </p>
+
                     <p className="mt-1 text-xl font-semibold">
                       {Math.max(
                         0,
@@ -242,10 +292,12 @@ export default function Dashboard() {
                       )}
                     </p>
                   </div>
+
                   <div>
                     <p className="text-sm text-muted-foreground">
                       Overdue tasks
                     </p>
+
                     <p className="mt-1 text-xl font-semibold">
                       {summary.overdueTasks}
                     </p>
@@ -262,6 +314,7 @@ export default function Dashboard() {
               <ListTodo className="h-5 w-5 text-muted-foreground" />
               Task Status Overview
             </CardTitle>
+
             <p className="text-sm text-muted-foreground">
               Breakdown by current status
             </p>
@@ -306,10 +359,12 @@ export default function Dashboard() {
                           <Icon className="h-4 w-4 text-muted-foreground" />
                           {item.label}
                         </span>
+
                         <span className="text-sm font-semibold">
                           {item.count}
                         </span>
                       </div>
+
                       <div className="h-2 overflow-hidden rounded-full bg-muted">
                         <div
                           className="h-full rounded-full bg-primary/80 transition-all duration-500"
@@ -324,12 +379,14 @@ export default function Dashboard() {
 
                 <div className="flex items-start gap-3 rounded-lg border p-3">
                   <CalendarClock className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
+
                   <div>
                     <p className="text-sm font-medium">
                       {summary.overdueTasks === 0
                         ? 'You are all caught up!'
                         : `${summary.overdueTasks} overdue ${summary.overdueTasks === 1 ? 'task' : 'tasks'}`}
                     </p>
+
                     <p className="mt-1 text-xs text-muted-foreground">
                       Uncompleted tasks with past due dates.
                     </p>
@@ -355,7 +412,7 @@ export default function Dashboard() {
               <LoaderCircle className="h-4 w-4 animate-spin" />
               Loading recent activity...
             </div>
-          ) : activityError ? (
+          ) : activityError && activities.length === 0 ? (
             <p role="alert" className="py-6 text-sm text-destructive">
               {activityError}
             </p>
@@ -378,9 +435,11 @@ export default function Dashboard() {
                     <p className="text-sm font-medium">
                       {formatAction(activity.action)}
                     </p>
+
                     <p className="break-words text-sm text-muted-foreground">
                       {activity.details || 'An activity was recorded.'}
                     </p>
+
                     <p className="mt-1 text-xs text-muted-foreground">
                       {activity.actorId?.name
                         ? `${activity.actorId.name} · `
@@ -390,6 +449,38 @@ export default function Dashboard() {
                   </div>
                 </div>
               ))}
+
+              {activityError && (
+                <p role="alert" className="text-center text-sm text-destructive">
+                  {activityError}
+                </p>
+              )}
+
+              {hasMoreActivities && (
+                <div className="flex justify-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleLoadMoreActivities()}
+                    disabled={loadingMoreActivities}
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-input bg-background px-5 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    {loadingMoreActivities ? (
+                      <>
+                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                        Loading...
+                      </>
+                    ) : (
+                      'Load more activities'
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {!hasMoreActivities && (
+                <p className="pt-2 text-center text-xs text-muted-foreground">
+                  You've reached the end of your activity history.
+                </p>
+              )}
             </div>
           )}
         </CardContent>

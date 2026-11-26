@@ -346,7 +346,7 @@ export default function Tasks() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="w-full min-w-0 max-w-full space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -371,7 +371,7 @@ export default function Tasks() {
       </div>
 
       {/* Search */}
-      <div className="relative max-w-md">
+      <div className="relative w-full min-w-0 max-w-md">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder="Search tasks..."
@@ -418,27 +418,31 @@ export default function Tasks() {
               )
 
             return (
-              <Card key={task._id}>
-                <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex min-w-0 items-start gap-3">
-                    {statusIcon}
+              <Card key={task._id} className="min-w-0 w-full max-w-full overflow-hidden">
+                <CardContent className="flex min-w-0 flex-col gap-4 p-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                    <div className="mt-0.5 shrink-0">
+                      {statusIcon}
+                    </div>
 
-                    <div className="min-w-0">
-                      <h3 className="font-medium">{task.title}</h3>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="break-words text-sm font-medium sm:text-base [overflow-wrap:anywhere]">
+                        {task.title}
+                      </h3>
 
-                      <p className="text-sm text-muted-foreground">
+                      <p className="break-words text-sm text-muted-foreground [overflow-wrap:anywhere]">
                         {projectName}
                       </p>
 
                       {task.description && (
-                        <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                        <p className="mt-1 line-clamp-3 break-words text-sm text-muted-foreground [overflow-wrap:anywhere]">
                           {task.description}
                         </p>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-3 text-sm">
+                  <div className="grid min-w-0 grid-cols-2 items-center gap-3 text-sm sm:grid-cols-3 lg:flex lg:max-w-[55%] lg:flex-wrap lg:justify-end">
                     {/* All roles can update task status */}
                     <Select
                       value={task.status}
@@ -454,7 +458,7 @@ export default function Tasks() {
                       disabled={updatingTaskId === task._id}
                     >
                       <SelectTrigger
-                        className="h-8 w-[140px]"
+                        className="h-9 w-full min-w-0 sm:w-[140px]"
                         aria-label={`Change status for ${task.title}`}
                       >
                         <SelectValue placeholder="Select status" />
@@ -468,7 +472,7 @@ export default function Tasks() {
                     </Select>
 
                     <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                      className={`w-fit max-w-full break-words rounded-full px-2.5 py-1 text-xs font-medium ${
                         task.priority === "high"
                           ? "bg-destructive/10 text-destructive"
                           : task.priority === "medium"
@@ -480,12 +484,12 @@ export default function Tasks() {
                         task.priority.slice(1)}
                     </span>
 
-                    <span className="flex items-center gap-1 text-muted-foreground">
+                    <span className="flex min-w-0 items-center gap-1 break-words text-muted-foreground">
                       <CalendarDays className="h-4 w-4" />
                       {formatDueDate(task.dueDate)}
                     </span>
 
-                    <span className="text-muted-foreground">
+                    <span className="min-w-0 break-words text-muted-foreground [overflow-wrap:anywhere]">
                       {task.assignedTo?.name ?? "Unassigned"}
                     </span>
 
@@ -494,6 +498,7 @@ export default function Tasks() {
                         type="button"
                         variant="outline"
                         size="sm"
+                        className="w-full sm:w-auto"
                         onClick={() => handleEditClick(task)}
                       >
                         <Pencil className="mr-2 h-4 w-4" />
