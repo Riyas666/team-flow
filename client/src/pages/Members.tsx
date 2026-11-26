@@ -268,8 +268,8 @@ export default function Members() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="w-full min-w-0 space-y-5 sm:space-y-6">
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Members</h1>
           <p className="text-sm text-muted-foreground">
@@ -281,7 +281,7 @@ export default function Members() {
           <button
             type="button"
             onClick={openInviteDialog}
-            className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 sm:w-auto"
           >
             <Plus className="h-4 w-4" />
             Invite Member
@@ -289,7 +289,7 @@ export default function Members() {
         )}
       </div>
 
-      <div className="relative max-w-md">
+      <div className="relative w-full max-w-md">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder="Search members..."
@@ -299,12 +299,12 @@ export default function Members() {
         />
       </div>
 
-      <Card>
-        <CardHeader>
+      <Card className="min-w-0 overflow-hidden">
+        <CardHeader className="px-4 py-4 sm:px-6">
           <CardTitle className="text-base">Workspace Members</CardTitle>
         </CardHeader>
 
-        <CardContent className="space-y-1">
+        <CardContent className="space-y-3 px-3 pb-4 sm:px-6 sm:pb-6">
           {isLoading ? (
             <p className="p-3 text-sm text-muted-foreground">
               Loading members...
@@ -323,7 +323,7 @@ export default function Members() {
             filteredMembers.map((member) => (
               <div
                 key={member._id}
-                className="flex flex-col gap-3 rounded-lg p-3 transition-colors hover:bg-accent sm:flex-row sm:items-center sm:justify-between"
+                className="flex min-w-0 flex-col gap-3 rounded-xl border bg-card p-3 transition-colors hover:bg-accent/50 sm:flex-row sm:items-center sm:justify-between sm:p-4"
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-xs font-semibold text-primary-foreground">
@@ -357,7 +357,7 @@ export default function Members() {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end sm:gap-3">
                   {/* Role badge */}
                   <span className="flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium">
                     {member.role === 'owner' || member.role === 'teamLeader' ? (
@@ -382,7 +382,7 @@ export default function Members() {
                             e.target.value as 'employee' | 'teamLeader',
                           )
                         }
-                        className="h-8 rounded-md border bg-background px-2 text-xs disabled:opacity-50"
+                        className="h-9 min-w-0 flex-1 rounded-md border bg-background px-2 text-xs disabled:opacity-50 sm:flex-none"
                         aria-label={`Change role for ${member.name}`}
                       >
                         <option value="employee">Employee</option>
@@ -414,7 +414,7 @@ export default function Members() {
                         type="button"
                         onClick={() => void handleMemberStatusChange(member)}
                         disabled={member.role === 'owner'}
-                        className="inline-flex h-8 items-center gap-1 rounded-md border px-2 text-xs font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+                        className="inline-flex h-9 flex-1 items-center justify-center gap-1 rounded-md border px-3 text-xs font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none"
                         aria-label={`${member.isActive ? 'Deactivate' : 'Activate'} ${member.name}`}
                       >
                         {member.isActive ? (
@@ -436,7 +436,7 @@ export default function Members() {
                           setDeleteError('')
                           setMemberToDelete(member)
                         }}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                         aria-label={`Delete invitation for ${member.name}`}
                         title="Delete invitation"
                       >
@@ -463,7 +463,7 @@ export default function Members() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="invite-dialog-title"
-            className="my-auto w-full max-w-md rounded-xl border bg-background p-6 shadow-xl"
+            className="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-xl border bg-background p-4 shadow-xl sm:p-6"
           >
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
@@ -616,7 +616,7 @@ export default function Members() {
             aria-modal="true"
             aria-labelledby="delete-member-title"
             aria-describedby="delete-member-description"
-            className="w-full max-w-md rounded-xl border bg-background p-6 shadow-xl"
+            className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-xl border bg-background p-4 shadow-xl sm:p-6"
           >
             <h2 id="delete-member-title" className="text-lg font-semibold">
               Remove member?

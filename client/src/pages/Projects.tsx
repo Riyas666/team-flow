@@ -206,8 +206,8 @@ export default function Projects() {
   ]
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="min-w-0 space-y-6 sm:space-y-8">
+      <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-2">
           <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
           <p className="text-sm text-muted-foreground">
@@ -216,6 +216,7 @@ export default function Projects() {
         </div>
 
         <Button
+          className="w-full sm:w-auto"
           type="button"
           onClick={() => {
             setCreateError('')
@@ -227,20 +228,20 @@ export default function Projects() {
         </Button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         {summaryCards.map((stat) => {
           const Icon = stat.icon
 
           return (
-            <Card key={stat.title} className="rounded-xl">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                <CardTitle className="text-sm font-medium">
+            <Card key={stat.title} className="min-w-0 rounded-xl">
+              <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 p-3 pb-2 sm:p-6 sm:pb-3">
+                <CardTitle className="min-w-0 text-xs font-medium leading-tight sm:text-sm">
                   {stat.title}
                 </CardTitle>
-                <Icon className="h-5 w-5 text-muted-foreground" />
+                <Icon className="h-4 w-4 shrink-0 text-muted-foreground sm:h-5 sm:w-5" />
               </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold">
+              <CardContent className="min-w-0 p-3 pt-0 sm:p-6 sm:pt-0">
+                <p className="text-xl font-bold sm:text-2xl">
                   {isLoading ? (
                     <LoaderCircle className="h-6 w-6 animate-spin text-muted-foreground" />
                   ) : error ? (
@@ -249,7 +250,7 @@ export default function Projects() {
                     stat.value
                   )}
                 </p>
-                <p className="mt-2 text-xs text-muted-foreground">
+                <p className="mt-1 break-words text-[11px] leading-snug text-muted-foreground sm:mt-2 sm:text-xs">
                   {stat.description}
                 </p>
               </CardContent>
@@ -258,7 +259,7 @@ export default function Projects() {
         })}
       </div>
 
-      <div className="relative max-w-md">
+      <div className="relative w-full max-w-md">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder="Search projects..."
@@ -316,7 +317,7 @@ export default function Projects() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {filteredProjects.map((project) => {
             const status = statusConfig[project.status] ?? statusConfig.planning
             const StatusIcon = status.icon
@@ -324,7 +325,7 @@ export default function Projects() {
             return (
               <Card
   key={project._id}
-  className="cursor-pointer rounded-xl transition-shadow hover:shadow-md"
+  className="min-w-0 cursor-pointer overflow-hidden rounded-xl transition-shadow hover:shadow-md"
   onClick={() =>
     navigate({
       to: '/projects/$projectId',
@@ -368,13 +369,13 @@ export default function Projects() {
                 </CardHeader>
 
                 <CardContent className="space-y-5">
-                  <p className="min-h-10 break-words text-sm text-muted-foreground">
+                  <p className="min-h-10 break-words [overflow-wrap:anywhere] text-sm text-muted-foreground">
                     {project.description || 'No description provided.'}
                   </p>
 
                   <div className="flex items-center gap-2 border-t pt-4 text-xs text-muted-foreground">
                     <CalendarDays className="h-4 w-4 shrink-0" />
-                    <span>
+                    <span className="min-w-0 break-words">
                       Created{' '}
                       {project.createdAt
                         ? new Date(project.createdAt).toLocaleDateString(
